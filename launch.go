@@ -1,7 +1,18 @@
 package main
 
-import "fmt"
+import (
+	"todo-web/apis"
+	"todo-web/server/server"
+)
 
 func main() {
-	fmt.Println("hello world")
+	server.NewServer()
+	db:=server.InitDatabase()
+
+	server.UseMid(server.JWTVerify)
+	
+	server.AddApplication(apis.TodoApiApplication(db))
+	server.AddApplication(apis.UserApiApplication(db))
+
+	server.Build(":8080")
 }

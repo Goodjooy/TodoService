@@ -19,6 +19,7 @@ func newException(code uint, message string) func(string) Exception {
 }
 
 var (
+	NoExcetion=newException(0,"well")("")
 	//souce not found 1XX
 
 	//not Found In DataBase
@@ -32,11 +33,19 @@ var (
 
 	
 	//Bad Request 2XX
-	TargetParmNotExist=newException(201,"target Parm Not provide")
+	TargetParmsNotExist=newException(201,"target Parms Not provide")
 	
 	//authentication 3XX
 	AuthenticationFailure=newException(301 ,"Failure authentication User")
 	PermissionDenied=newException(302,"Permission Denied")
 	AccessDenied=newException(303,"Access Denied")
+	TokenInvaild =newException(304,"Token Invail")
+	TokenFailure=newException(305,"Handling Token Failure")
+	GenerateTokenFailure =newException(306,"Generate Toke Failure")
 
+	//User Error
+	CreateNewUserFailure=newException(401,"Creat New User Failure")
+	
+	//IOC Error
+	UnSupportData=newException(501,"given Data Not Match")
 )
