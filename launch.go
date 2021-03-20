@@ -9,7 +9,7 @@ func main() {
 	server.NewServer()
 	db:=server.InitDatabase()
 
-	server.UseMid(server.JWTVerify)
+	server.UseIOCMid(server.JWTVerifyIOC)
 	
 	server.AddApplication(apis.TodoApiApplication(db))
 	server.AddApplication(apis.UserApiApplication(db))

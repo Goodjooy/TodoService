@@ -5,6 +5,7 @@ import (
 	"time"
 	"todo-web/dataHandle"
 	"todo-web/err"
+	"todo-web/server/IOC"
 	"todo-web/server/manage"
 
 	"github.com/dgrijalva/jwt-go"
@@ -16,6 +17,9 @@ type UserClaims struct {
 	Password           string `json:"paswd"`
 	Name               string `json:"name"`
 	jwt.StandardClaims `json:"-"`
+}
+type JWTParm struct {
+	Cookie IOC.Value `ioc:"from:cookie;to:string;name:token"`
 }
 
 var secret = []byte("1141451919")
@@ -35,13 +39,23 @@ func GenerateToken(claims *UserClaims) (string, err.Exception) {
 	}
 	return sign, err.NoExcetion
 }
+
+func JWTVerifyIOC(parm JWTParm, Req *http.Request, context *IOC.ConxtextSeter) {
+	var token string
+	parm.Cookie.Get(&token)
+
+	user, e := parseToken(token)
+	context.Set("err", e)
+	context.Set("token", user)
+}
+
 func JWTVerify(c *gin.Context) {
 	URI := c.Request.RequestURI
 	if manage.Contains(URI, ignorePath) {
 		return
 	}
-	token ,er:= c.Cookie("token")
-	if token == ""||er!=nil {
+	token, er := c.Cookie("token")
+	if token == "" || er != nil {
 		e := err.AccessDenied("not token Found")
 		c.JSON(http.StatusBadRequest, dataHandle.FailureResult(e))
 		c.Abort()

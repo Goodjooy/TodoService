@@ -1,10 +1,7 @@
 package IOC
 
 import (
-	"net/http"
 	"reflect"
-
-	"github.com/jinzhu/gorm"
 )
 
 //FuncHandler 接管函数的相关信息
@@ -45,6 +42,4 @@ type InFeildHandler struct {
 	defaultData string
 }
 
-var request = reflect.TypeOf(&http.Request{})
-var database = reflect.TypeOf(&gorm.DB{})
-var valueTypeName = reflect.TypeOf(Value{}).String()
+

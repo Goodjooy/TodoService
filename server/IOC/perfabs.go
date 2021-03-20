@@ -32,3 +32,29 @@ func setValue(data reflect.Value) reflect.Value {
 	t := Value{value: data}
 	return reflect.ValueOf(t)
 }
+
+type TenmplateData struct {
+	data map[string]interface{}
+}
+
+func newTemplateMap() *TenmplateData {
+	t := TenmplateData{}
+	t.data = make(map[string]interface{})
+	return &t
+}
+func (t *TenmplateData) Set(key string, data interface{}) {
+	t.data[key] = data
+}
+
+type ConxtextSeter struct {
+	data map[string]interface{}
+}
+
+func newConxtextSeter() *ConxtextSeter {
+	t := ConxtextSeter{}
+	t.data = make(map[string]interface{})
+	return &t
+}
+func (t *ConxtextSeter) Set(key string, data interface{}) {
+	t.data[key] = data
+}

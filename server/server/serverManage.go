@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"todo-web/server/IOC"
 	"todo-web/server/manage"
 
 	"github.com/garyburd/redigo/redis"
@@ -39,6 +40,15 @@ func InitRedis() redis.Conn {
 	}
 	redisDB = c
 	return redisDB
+}
+func UseIOCMid(fns ...interface{}) {
+	var handles []gin.HandlerFunc
+	for _, f := range fns {
+		fn := IOC.ToIOC(f)
+		handle := IOC.DoIOC(fn, database)
+		handles = append(handles, handle)
+	}
+	UseMid(handles...)
 }
 
 func UseMid(handle ...gin.HandlerFunc) {

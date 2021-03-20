@@ -1,7 +1,6 @@
 package IOC
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"todo-web/dataHandle"
@@ -18,13 +17,18 @@ var inited = false
 
 func InitIOC() {
 	typeTransfrom.InitTypeTrasnfrom()
+	initExtraHandler()
 	inited = true
 }
 
-func AddIOC(handleFunc interface{}) (FuncHandler, error) {
+func ToIOC(handleFunc interface{}) FuncHandler {
+	if !inited {
+		InitIOC()
+	}
+
 	valueType := reflect.TypeOf(handleFunc)
 	if valueType.Kind() != reflect.Func {
-		return FuncHandler{}, errors.New("not a Func")
+		panic(fmt.Errorf("traget type is not Func %v", valueType.String()))
 	}
 	valueValue := reflect.ValueOf(handleFunc)
 
@@ -54,7 +58,8 @@ func AddIOC(handleFunc interface{}) (FuncHandler, error) {
 				feild.pkgPath = f.PkgPath
 
 				fName := f.Type.String()
-				valueName := valueTypeName
+				valueName := valueTypeName.String()
+
 				if fName == valueName {
 					feild.tag = f.Tag
 					feild.targetType,
@@ -71,10 +76,11 @@ func AddIOC(handleFunc interface{}) (FuncHandler, error) {
 		fun.inArray = append(fun.inArray, inHandler)
 	}
 
-	return fun, nil
+	return fun
 }
-func generateInArray(fn FuncHandler, db *gorm.DB, c *gin.Context) []reflect.Value {
+func generateInArray(fn FuncHandler, db *gorm.DB, c *gin.Context) (argList []reflect.Value, setterList []reflect.Value) {
 	var valueList []reflect.Value = make([]reflect.Value, 0)
+	var ContextSeters []reflect.Value
 
 	for _, v := range fn.inArray {
 		//遍历参数列表
@@ -100,12 +106,9 @@ func generateInArray(fn FuncHandler, db *gorm.DB, c *gin.Context) []reflect.Valu
 					transfrom := typeTransfrom.GetTransfromer(feild.targetType)
 					targetFeild.Set(setValue(transfrom(targetStr)))
 				} else {
-					var t reflect.Value
-					switch feild.feildType {
-					case request:
-						t = reflect.ValueOf(c.Request)
-					case database:
-						t = reflect.ValueOf(db)
+					var t reflect.Value = getHandler(feild.feildType)(c, db)
+					if t.Type() == contextSeterPtr {
+						ContextSeters = append(ContextSeters, t)
 					}
 
 					targetFeild.Set(t)
@@ -113,17 +116,15 @@ func generateInArray(fn FuncHandler, db *gorm.DB, c *gin.Context) []reflect.Valu
 			}
 			d = st
 		} else {
-			switch v.parmType {
-			case request:
-				d = reflect.ValueOf(c.Request)
-			case database:
-				d = reflect.ValueOf(db)
+			d = getHandler(v.parmType)(c, db)
+			if d.Type() == contextSeterPtr {
+				ContextSeters = append(ContextSeters, d)
 			}
 		}
 
 		valueList = append(valueList, d)
 	}
-	return valueList
+	return valueList, ContextSeters
 }
 
 func DoIOC(fn FuncHandler, db *gorm.DB) gin.HandlerFunc {
@@ -134,9 +135,16 @@ func DoIOC(fn FuncHandler, db *gorm.DB) gin.HandlerFunc {
 	var fun gin.HandlerFunc = func(c *gin.Context) {
 		//函数参数列表
 		defer recoverHandle("run func", fn, c)
-		valueList := generateInArray(fn, db, c)
+		valueList, contextList := generateInArray(fn, db, c)
 		//todo defer recover
 		results := fn.fn.Call(valueList)
+
+		for _, v := range contextList {
+			t := v.Interface().(*ConxtextSeter)
+			for key, value := range t.data {
+				c.Set(key, value)
+			}
+		}
 		//todo handle results
 		var r []interface{}
 
@@ -144,8 +152,8 @@ func DoIOC(fn FuncHandler, db *gorm.DB) gin.HandlerFunc {
 			t := v.Interface()
 			r = append(r, t)
 		}
-		if len(r) == 1 {
-
+		if len(r) == 0 {
+		} else if len(r) == 1 {
 			c.JSON(200, r[0])
 		} else {
 			c.JSON(200, r)
@@ -162,7 +170,7 @@ func recoverHandle(local string, fn FuncHandler, c *gin.Context) {
 
 	var r dataHandle.Result = dataHandle.FailureFuncResult(
 		err.FailureGenerateFunctionParm,
-		fmt.Sprintf("[%s] in :%s | %v", local, fn.fnType.Name(), e))
+		fmt.Sprintf("[%s] : %s | %v", local, fn.fnType.Name(), e))
 
 	//todo logger
 

@@ -36,11 +36,12 @@ func NewHandle(method Method, handles ...FeedBackGenerate) Handle {
 	return Handle{method: method, handles: handles}
 }
 
-func NewIOCHandle(method Method, fn ...IOC.FuncHandler) Handle {
+func NewIOCHandle(method Method, fn ...interface{}) Handle {
 	handle := Handle{method: method}
 	for _, f := range fn {
+		fun:=IOC.ToIOC(f)
 		var t FeedBackGenerate = func(d *gorm.DB) gin.HandlerFunc {
-			return IOC.DoIOC(f, d)
+			return IOC.DoIOC(fun, d)
 		}
 		handle.handles = append(handle.handles, t)
 	}
