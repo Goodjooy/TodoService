@@ -3,13 +3,11 @@ package server
 import (
 	"net/http"
 	"time"
-	"todo-web/dataHandle"
 	"todo-web/err"
 	"todo-web/server/IOC"
 	"todo-web/server/manage"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/gin-gonic/gin"
 )
 
 type UserClaims struct {
@@ -42,28 +40,15 @@ func GenerateToken(claims *UserClaims) (string, err.Exception) {
 
 func JWTVerifyIOC(parm JWTParm, Req *http.Request, context *IOC.ConxtextSeter) {
 	var token string
+	if manage.Contains(Req.RequestURI, ignorePath) {
+		return
+	}
+
 	parm.Cookie.Get(&token)
 
 	user, e := parseToken(token)
 	context.Set("err", e)
 	context.Set("token", user)
-}
-
-func JWTVerify(c *gin.Context) {
-	URI := c.Request.RequestURI
-	if manage.Contains(URI, ignorePath) {
-		return
-	}
-	token, er := c.Cookie("token")
-	if token == "" || er != nil {
-		e := err.AccessDenied("not token Found")
-		c.JSON(http.StatusBadRequest, dataHandle.FailureResult(e))
-		c.Abort()
-		return
-	}
-	user, Exc := parseToken(token)
-	c.Set("err", Exc)
-	c.Set("token", user)
 }
 
 func parseToken(tokenStrng string) (*UserClaims, err.Exception) {

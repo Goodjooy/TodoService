@@ -13,7 +13,7 @@ import (
 func TeskApiApplication(db *gorm.DB) manage.Application {
 	app := manage.NewApplication("/api/test", "test", "")
 
-	app.AsignAddon(userConfime(db))
+	app.AsignAddonIOC(db,userConfime)
 
 	app.AsignViewer(
 		manage.QuickNewViewer(

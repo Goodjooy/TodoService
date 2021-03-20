@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net/http"
+	"todo-web/server/IOC"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
@@ -68,6 +69,16 @@ func (app Application) GetAppName() string {
 }
 func (app *Application) AsignAddon(addons ...gin.HandlerFunc) {
 	app.useAddon = append(app.useAddon, addons...)
+}
+func (app *Application) AsignAddonIOC(db *gorm.DB, addons ...interface{}) {
+	var fns []gin.HandlerFunc
+	for _, v := range addons {
+		t := IOC.ToIOC(v)
+		f := IOC.DoIOC(t, db)
+		fns = append(fns, f)
+	}
+
+	app.useAddon = append(app.useAddon, fns...)
 }
 func (app *Application) AsignModels(models ...interface{}) {
 	app.models = append(app.models, models...)

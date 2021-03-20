@@ -22,6 +22,9 @@ func InitTypeTrasnfrom() {
 	typeTransfromMap["string"] = toString
 	typeTransfromMap["int"] = toInt
 	typeTransfromMap["uint"] = toUint
+	typeTransfromMap["stringSlice"] = toStringSlice
+	typeTransfromMap["intSlice"] = toIntSlice
+	typeTransfromMap["uintSlice"] = toUintSlice
 
 	fromGotersMap["form"] = fromPostForm
 	fromGotersMap["path"] = fromURLPath

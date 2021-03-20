@@ -9,8 +9,8 @@ import (
 	"todo-web/dataHandle"
 	"todo-web/err"
 	"todo-web/models"
+	"todo-web/server/IOC"
 	"todo-web/server/manage"
-	"todo-web/server/server"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -19,50 +19,19 @@ import (
 
 func TodoApiApplication(db *gorm.DB) manage.Application {
 	app := manage.NewApplication("/api/todo", "api", "")
+	app.AsignAddonIOC(db, userConfime)
 
-	app.AsignAddon(userConfime(db))
 	app.AsignViewer(
 		manage.QuickNewViewer(
 			"",
 			db,
-			manage.NewHandle(manage.GET , getAllTodos),
-			manage.NewHandle(manage.POST , postNewTodo),
+			manage.NewHandle(manage.GET, getAllTodos),
+			manage.NewHandle(manage.POST, postNewTodo),
 			manage.NewHandle(manage.PUT, putExistTodo),
-			manage.NewHandle(manage.DELETE , deleteTodo)))
+			manage.NewHandle(manage.DELETE, deleteTodo)))
 
 	app.AsignModels(&models.Todo{})
 	return app
-}
-
-func userConfime(db *gorm.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		e, exist := c.Get("err")
-		u, existu := c.Get("token")
-		if exist && e != err.NoExcetion {
-			c.JSON(http.StatusBadRequest, dataHandle.FailureResult(e.(err.Exception)))
-			c.Abort()
-			return
-		} else if !existu {
-			c.JSON(http.StatusBadRequest,
-				dataHandle.FailureFuncResult(
-					err.TokenFailure,
-					"Not found User In token"))
-			c.Abort()
-			return
-		}
-
-		var user models.UserModel = models.FromUserClaims(*(u.(*server.UserClaims)))
-		var userResult []models.UserModel
-
-		db.Where(&user).Find(&userResult)
-		if len(userResult) == 0 {
-			c.JSON(http.StatusBadRequest, dataHandle.FailureFuncResult(
-				err.NotFoundUser, "user: "+user.EmailAddress))
-			c.Abort()
-			return
-		}
-		c.Set("user", userResult[0])
-	}
 }
 
 const (
@@ -70,6 +39,13 @@ const (
 	TODO_DONE
 	TODO_UNDONE
 )
+
+type AllTODOParm struct {
+	User      IOC.Value `ioc:"from:context;to:raw;name:user"`
+	PageSize  IOC.Value `ioc:"from:query;to:uint;name:size;default:0"`
+	PageCount IOC.Value `ioc:"from:query;to:uint;name:page;default:0"`
+	Filter    IOC.Value `ioc:"from:query;to:string;name:key;default:"`
+}
 
 func getAllTodos(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -80,7 +56,7 @@ func getAllTodos(db *gorm.DB) gin.HandlerFunc {
 		pageSize, _ := strconv.Atoi(c.DefaultQuery("size", "0"))
 		pageCount, _ := strconv.Atoi(c.DefaultQuery("page", "0"))
 		filter, _ := strconv.Atoi(c.DefaultQuery("filter", "0"))
-		keyword:=c.DefaultQuery("key","")
+		keyword := c.DefaultQuery("key", "")
 
 		var todos []models.Todo
 		var u = user.(models.UserModel)
@@ -98,8 +74,8 @@ func getAllTodos(db *gorm.DB) gin.HandlerFunc {
 		var startPos int
 		temp := db.Where(&exampleTodo)
 
-		if keyword!=""{
-			temp=temp.Where("`todos`.`title` LIKE ? or `todos`.`body` LIKE ?","%"+keyword+"%","%"+keyword+"%")
+		if keyword != "" {
+			temp = temp.Where("`todos`.`title` LIKE ? or `todos`.`body` LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 		}
 
 		if pageCount != 0 && pageSize != 0 {
