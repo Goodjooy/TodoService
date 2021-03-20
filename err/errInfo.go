@@ -48,4 +48,5 @@ var (
 	
 	//IOC Error
 	UnSupportData=newException(501,"given Data Not Match")
+	FailureGenerateFunctionParm=newException(502,"Failure generate Func Parm List")
 )

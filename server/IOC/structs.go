@@ -1,6 +1,11 @@
 package IOC
 
-import "reflect"
+import (
+	"net/http"
+	"reflect"
+
+	"github.com/jinzhu/gorm"
+)
 
 //FuncHandler 接管函数的相关信息
 type FuncHandler struct {
@@ -12,10 +17,9 @@ type FuncHandler struct {
 	inNum uint
 	//参数列表
 	inArray []InHandler
-
 }
 
-type InHandler struct{
+type InHandler struct {
 	//参数类型
 	parmType reflect.Type
 	//是否为结构体
@@ -34,4 +38,13 @@ type InFeildHandler struct {
 	tag reflect.StructTag
 	//目标转换类型
 	targetType string
+	from       string
+	nameFrom   string
+
+	reqire      bool
+	defaultData string
 }
+
+var request = reflect.TypeOf(&http.Request{})
+var database = reflect.TypeOf(&gorm.DB{})
+var valueTypeName = reflect.TypeOf(Value{}).String()

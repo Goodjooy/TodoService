@@ -11,11 +11,11 @@ import (
 )
 
 type administer interface {
-	GetTargetModel(appName,modelName string)interface{}
+	GetTargetModel(appName, modelName string) interface{}
 }
-type quickAsign interface{
-	GetURLPattern()string;
-	GetHandles()map[string][]gin.HandlerFunc
+type quickAsign interface {
+	GetURLPattern() string
+	GetHandles() map[string][]gin.HandlerFunc
 }
 
 /*
@@ -23,16 +23,18 @@ Application 后端的每个单独应用
 */
 type Application struct {
 	URLPattern string
-	name string
+	name       string
 
 	viewers           []Viewer
 	viewerURLPatterns []string
 
+	useAddon []gin.HandlerFunc
+
 	models []interface{}
 }
 
-func NewApplication(URLPattern,appName,elseData string) Application {
-	app := Application{URLPattern: URLPattern,name: appName}
+func NewApplication(URLPattern, appName, elseData string) Application {
+	app := Application{URLPattern: URLPattern, name: appName}
 
 	return app
 }
@@ -58,15 +60,17 @@ func methodLimitaion(f func(c *gin.Context), supportMethods []string) gin.Handle
 	return temp
 }
 
-func (app Application)GetAllModels()[]interface{}{
+func (app Application) GetAllModels() []interface{} {
 	return app.models
 }
-func(app Application)GetAppName() string{
-	return app.name;
+func (app Application) GetAppName() string {
+	return app.name
 }
-
-func (app*Application)AsignModels(models...interface{}){
-	app.models=append(app.models, models...)
+func (app *Application) AsignAddon(addons ...gin.HandlerFunc) {
+	app.useAddon = append(app.useAddon, addons...)
+}
+func (app *Application) AsignModels(models ...interface{}) {
+	app.models = append(app.models, models...)
 }
 
 func (app *Application) AsignViewer(viewers ...Viewer) {
@@ -87,13 +91,15 @@ func (app *Application) AsignViewer(viewers ...Viewer) {
 	}
 }
 
-func (app Application) AsignApplication(server *gin.Engine, db *gorm.DB) Application{
+func (app Application) AsignApplication(server *gin.Engine, db *gorm.DB) Application {
 	group := server.Group(app.URLPattern)
+
+	group.Use(app.useAddon...)
 	viewers := app.viewers
 	for _, v := range viewers {
-		handles:=v.handle
-		for medhod,fn := range handles {
-			group.Handle(string(medhod),v.URLPattern,fn...)
+		handles := v.handle
+		for medhod, fn := range handles {
+			group.Handle(string(medhod), v.URLPattern, fn...)
 		}
 	}
 
@@ -105,22 +111,23 @@ func (app Application) AsignApplication(server *gin.Engine, db *gorm.DB) Applica
 	return app
 }
 
-const numStart='0'
-const lowAlphaStart='a'
-const upAlphaStart='A'
+const numStart = '0'
+const lowAlphaStart = 'a'
+const upAlphaStart = 'A'
+
 func DateSHA256Hash(passwd string) string {
 	hash := sha256.Sum256([]byte(passwd))
 
 	var hashRe []byte
 
 	for _, v := range hash {
-		t:=v%(10+26+26)
-		if t<10 {
-			t=t+numStart
-		}else if t<26+10 {
-			t=t+lowAlphaStart-10
+		t := v % (10 + 26 + 26)
+		if t < 10 {
+			t = t + numStart
+		} else if t < 26+10 {
+			t = t + lowAlphaStart - 10
 		} else {
-			t=t+upAlphaStart-10-26
+			t = t + upAlphaStart - 10 - 26
 		}
 		hashRe = append(hashRe, t)
 	}

@@ -20,14 +20,15 @@ import (
 func TodoApiApplication(db *gorm.DB) manage.Application {
 	app := manage.NewApplication("/api/todo", "api", "")
 
+	app.AsignAddon(userConfime(db))
 	app.AsignViewer(
 		manage.QuickNewViewer(
 			"",
 			db,
-			manage.NewHandle(manage.GET, userConfime, getAllTodos),
-			manage.NewHandle(manage.POST, userConfime, postNewTodo),
-			manage.NewHandle(manage.PUT, userConfime, putExistTodo),
-			manage.NewHandle(manage.DELETE, userConfime, deleteTodo)))
+			manage.NewHandle(manage.GET , getAllTodos),
+			manage.NewHandle(manage.POST , postNewTodo),
+			manage.NewHandle(manage.PUT, putExistTodo),
+			manage.NewHandle(manage.DELETE , deleteTodo)))
 
 	app.AsignModels(&models.Todo{})
 	return app

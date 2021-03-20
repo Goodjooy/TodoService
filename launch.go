@@ -13,6 +13,7 @@ func main() {
 	
 	server.AddApplication(apis.TodoApiApplication(db))
 	server.AddApplication(apis.UserApiApplication(db))
+	server.AddApplication(apis.TeskApiApplication(db))
 
 	server.Build(":8080")
 }

@@ -2,19 +2,29 @@ package IOC
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
+	"todo-web/dataHandle"
+	"todo-web/err"
 	"todo-web/server/IOC/tools"
-	"todo-web/server/manage"
+	"todo-web/server/IOC/typeTransfrom"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/gorm"
 )
 
 //IOC 控制反转
+var inited = false
 
-var appMapping map[string][]FuncHandler
+func InitIOC() {
+	typeTransfrom.InitTypeTrasnfrom()
+	inited = true
+}
 
-func addIOC(app manage.Application, handleFunc interface{}) error {
+func AddIOC(handleFunc interface{}) (FuncHandler, error) {
 	valueType := reflect.TypeOf(handleFunc)
 	if valueType.Kind() != reflect.Func {
-		return errors.New("not a Func")
+		return FuncHandler{}, errors.New("not a Func")
 	}
 	valueValue := reflect.ValueOf(handleFunc)
 
@@ -42,9 +52,17 @@ func addIOC(app manage.Application, handleFunc interface{}) error {
 				feild.feildType = f.Type
 				feild.name = f.Name
 				feild.pkgPath = f.PkgPath
-				feild.tag = f.Tag
-				feild.targetType = tools.LoadTargetTypeTag(f.Tag)
 
+				fName := f.Type.String()
+				valueName := valueTypeName
+				if fName == valueName {
+					feild.tag = f.Tag
+					feild.targetType,
+						feild.from,
+						feild.nameFrom,
+						feild.reqire,
+						feild.defaultData = tools.LoadTargetTypeTag(f.Tag)
+				}
 				inHandler.insideFeild =
 					append(inHandler.insideFeild, feild)
 			}
@@ -53,10 +71,102 @@ func addIOC(app manage.Application, handleFunc interface{}) error {
 		fun.inArray = append(fun.inArray, inHandler)
 	}
 
-	return nil
+	return fun, nil
+}
+func generateInArray(fn FuncHandler, db *gorm.DB, c *gin.Context) []reflect.Value {
+	var valueList []reflect.Value = make([]reflect.Value, 0)
+
+	for _, v := range fn.inArray {
+		//遍历参数列表
+		var d reflect.Value
+		if v.structType {
+			//参数类型为结构体
+			st := reflect.New(v.parmType).Elem()
+
+			for _, feild := range v.insideFeild {
+				targetFeild := st.FieldByName(feild.name)
+				if feild.feildType == reflect.TypeOf(Value{}) {
+					goter := typeTransfrom.GetDataGoter(feild.from)
+					targetStr, exist := goter(c)(feild.nameFrom)
+
+					if !feild.reqire && !exist {
+						targetStr = feild.defaultData
+					}
+					if feild.reqire && !exist {
+						panic(fmt.Errorf("target parm require but not exist | from: %s | name: %s | type: %s",
+							feild.from, feild.name, feild.targetType))
+					}
+
+					transfrom := typeTransfrom.GetTransfromer(feild.targetType)
+					targetFeild.Set(setValue(transfrom(targetStr)))
+				} else {
+					var t reflect.Value
+					switch feild.feildType {
+					case request:
+						t = reflect.ValueOf(c.Request)
+					case database:
+						t = reflect.ValueOf(db)
+					}
+
+					targetFeild.Set(t)
+				}
+			}
+			d = st
+		} else {
+			switch v.parmType {
+			case request:
+				d = reflect.ValueOf(c.Request)
+			case database:
+				d = reflect.ValueOf(db)
+			}
+		}
+
+		valueList = append(valueList, d)
+	}
+	return valueList
 }
 
-func doIOC(appName string) {
-	//todo generate new
-	reflect.New(appMapping[appName][0].inArray[0].parmType)
+func DoIOC(fn FuncHandler, db *gorm.DB) gin.HandlerFunc {
+	if !inited {
+		InitIOC()
+	}
+
+	var fun gin.HandlerFunc = func(c *gin.Context) {
+		//函数参数列表
+		defer recoverHandle("run func", fn, c)
+		valueList := generateInArray(fn, db, c)
+		//todo defer recover
+		results := fn.fn.Call(valueList)
+		//todo handle results
+		var r []interface{}
+
+		for _, v := range results {
+			t := v.Interface()
+			r = append(r, t)
+		}
+		if len(r) == 1 {
+
+			c.JSON(200, r[0])
+		} else {
+			c.JSON(200, r)
+		}
+	}
+	return fun
+}
+
+func recoverHandle(local string, fn FuncHandler, c *gin.Context) {
+	e := recover()
+	if e == nil {
+		return
+	}
+
+	var r dataHandle.Result = dataHandle.FailureFuncResult(
+		err.FailureGenerateFunctionParm,
+		fmt.Sprintf("[%s] in :%s | %v", local, fn.fnType.Name(), e))
+
+	//todo logger
+
+	c.JSON(400, r)
+	c.Abort()
+
 }
